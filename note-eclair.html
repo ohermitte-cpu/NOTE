@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Note Éclair</title>
+<style>
+  :root{
+    --bg: #12181A;
+    --surface: #1B2225;
+    --surface-2: #222B2E;
+    --text: #F1EDE3;
+    --text-dim: #8FA0A0;
+    --accent: #4FB8A8;
+    --accent-dim: #2E6E65;
+    --gold: #E3A23D;
+    --danger: #D9765F;
+    --radius: 18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    height:100%;}
+  .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;
+    padding: env(safe-area-inset-top,16px) 16px calc(env(safe-area-inset-bottom,16px) + 16px);}
+
+  header{display:flex;align-items:center;justify-content:space-between;padding:8px 4px 4px;}
+  header h1{font-family:'Space Grotesk','Inter',sans-serif; font-size:22px; font-weight:700;
+    letter-spacing:-0.01em; margin:0; display:flex; align-items:center; gap:8px;}
+  header h1 .bolt{color:var(--gold);}
+  .icon-btn{background:none;border:none;color:var(--text-dim);font-size:20px;padding:10px;
+    cursor:pointer; line-height:1; border-radius:12px;}
+  .icon-btn:active{background:var(--surface);}
+
+  .mic-section{display:flex;flex-direction:column;align-items:center;gap:14px;
+    padding: 28px 0 20px;}
+  .mic-wrap{position:relative; width:132px; height:132px; display:flex; align-items:center; justify-content:center;}
+  .pulse-ring{position:absolute; inset:0; border-radius:50%; background:var(--accent);
+    opacity:0; }
+  .listening .pulse-ring{animation: pulse 1.8s ease-out infinite;}
+  @keyframes pulse{
+    0%{ transform:scale(0.75); opacity:0.55;}
+    100%{ transform:scale(1.55); opacity:0;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .listening .pulse-ring{animation:none; opacity:0.25; transform:scale(1.2);}
+  }
+  .mic-btn{position:relative; z-index:1; width:96px; height:96px; border-radius:50%;
+    border:none; background:var(--surface-2); color:var(--text-dim);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.04) inset;
+    transition: background .2s, color .2s, transform .15s;}
+  .mic-btn:active{transform:scale(0.96);}
+  .listening .mic-btn{background:var(--accent); color:#0D2321;}
+  .mic-btn svg{width:34px;height:34px;}
+
+  #status{font-size:14.5px; color:var(--text-dim); margin:0; min-height:18px;}
+  #liveTranscript{font-size:15px; color:var(--text); text-align:center; min-height:22px;
+    padding:0 12px; opacity:0.85; max-width:100%;}
+
+  .confirm-flash{position:fixed; inset:0; background:var(--accent); opacity:0; pointer-events:none;
+    transition:opacity .12s; z-index:50;}
+  .confirm-flash.on{opacity:0.14;}
+
+  .manual-add{display:flex; gap:8px; margin: 4px 0 18px;}
+  .manual-add input{flex:1; background:var(--surface); border:1px solid rgba(255,255,255,0.06);
+    border-radius:12px; padding:12px 14px; color:var(--text); font-size:15px;}
+  .manual-add input::placeholder{color:var(--text-dim);}
+  .manual-add button{background:var(--surface-2); color:var(--accent); border:none;
+    border-radius:12px; padding:0 16px; font-size:14px; font-weight:600; cursor:pointer;}
+
+  .filter-tabs{display:flex; gap:6px; margin-bottom:10px;}
+  .filter-tabs button{flex:1; background:none; border:none; color:var(--text-dim);
+    font-size:13.5px; font-weight:600; padding:9px 0; border-radius:10px; cursor:pointer;}
+  .filter-tabs button.active{background:var(--surface); color:var(--text);}
+
+  #todoList{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; flex:1;}
+  #todoList li{display:flex; align-items:flex-start; gap:12px; background:var(--surface);
+    border-radius:var(--radius); padding:13px 14px;}
+  .check{flex-shrink:0; width:22px; height:22px; border-radius:7px; border:2px solid var(--text-dim);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; margin-top:1px;}
+  .check.done{background:var(--gold); border-color:var(--gold);}
+  .check svg{width:13px;height:13px; opacity:0;}
+  .check.done svg{opacity:1;}
+  .todo-body{flex:1; min-width:0;}
+  .todo-text{font-size:15.5px; line-height:1.4; word-break:break-word;}
+  .todo-text.done{color:var(--text-dim); text-decoration:line-through;}
+  .todo-time{font-size:11.5px; color:var(--text-dim); margin-top:2px;}
+  .del-btn{flex-shrink:0; background:none; border:none; color:var(--text-dim); font-size:18px;
+    cursor:pointer; padding:4px 2px;}
+
+  .empty-state{text-align:center; color:var(--text-dim); font-size:14px; padding:36px 20px; line-height:1.5;}
+
+  .hint{font-size:12.5px; color:var(--text-dim); text-align:center; padding:14px 8px 4px; line-height:1.5;}
+
+  .resurface-card{display:none; background:var(--surface-2); border:1px solid var(--accent-dim);
+    border-radius:var(--radius); padding:14px 15px; margin-bottom:14px;}
+  .resurface-card.show{display:block;}
+  .resurface-card .rf-label{font-size:11.5px; letter-spacing:0.03em; text-transform:uppercase;
+    color:var(--gold); font-weight:700; margin-bottom:6px;}
+  .resurface-card .rf-text{font-size:15.5px; line-height:1.4; margin-bottom:4px;}
+  .resurface-card .rf-extra{font-size:12px; color:var(--text-dim); margin-bottom:12px;}
+  .resurface-card .rf-actions{display:flex; gap:8px;}
+  .resurface-card .rf-actions button{flex:1; border:none; border-radius:10px; padding:10px 0;
+    font-size:13.5px; font-weight:600; cursor:pointer;}
+  .rf-done{background:var(--gold); color:#241A05;}
+  .rf-snooze{background:var(--surface); color:var(--text-dim);}
+
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; gap:12px;
+    background:var(--surface-2); border-radius:12px; padding:12px 14px; margin-bottom:16px;}
+  .toggle-row .t-label{font-size:14px;}
+  .toggle-row .t-sub{font-size:11.5px; color:var(--text-dim); margin-top:2px;}
+  .toggle-btn{flex-shrink:0; width:46px; height:28px; border-radius:14px; border:none;
+    background:var(--surface); position:relative; cursor:pointer;}
+  .toggle-btn .knob{position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%;
+    background:var(--text-dim); transition:transform .15s, background .15s;}
+  .toggle-btn.on{background:var(--accent-dim);}
+  .toggle-btn.on .knob{transform:translateX(18px); background:var(--accent);}
+
+  .panel-backdrop{position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:flex-end;
+    z-index:40;}
+  .panel-backdrop.hidden{display:none;}
+  .settings-panel{background:var(--surface); width:100%; max-width:480px; margin:0 auto;
+    border-radius:20px 20px 0 0; padding:20px 20px calc(env(safe-area-inset-bottom,16px) + 20px);}
+  .settings-panel h2{font-family:'Space Grotesk',sans-serif; font-size:17px; margin:0 0 14px;}
+  .settings-panel label{font-size:13px; color:var(--text-dim); display:block; margin-bottom:6px;}
+  .settings-panel input{width:100%; background:var(--surface-2); border:1px solid rgba(255,255,255,0.07);
+    border-radius:12px; padding:12px 14px; color:var(--text); font-size:15px; margin-bottom:16px;}
+  .settings-panel .row{display:flex; gap:10px;}
+  .settings-panel button.primary{flex:1; background:var(--accent); color:#0D2321; border:none;
+    border-radius:12px; padding:13px 0; font-size:14.5px; font-weight:700; cursor:pointer;}
+  .settings-panel button.ghost{flex:1; background:none; color:var(--text-dim); border:1px solid rgba(255,255,255,0.1);
+    border-radius:12px; padding:13px 0; font-size:14.5px; font-weight:600; cursor:pointer;}
+  .settings-note{font-size:12px; color:var(--text-dim); line-height:1.5; margin-bottom:16px;}
+</style>
+</head>
+<body>
+<div class="confirm-flash" id="confirmFlash"></div>
+<div class="app">
+  <header>
+    <h1><span class="bolt">⚡</span> Note Éclair</h1>
+    <button class="icon-btn" id="openSettings">⚙</button>
+  </header>
+
+  <div class="mic-section" id="micSection">
+    <div class="mic-wrap">
+      <div class="pulse-ring"></div>
+      <button class="mic-btn" id="micBtn" aria-label="Démarrer l'écoute">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z"/>
+          <path d="M19 11a7 7 0 0 1-14 0"/>
+          <line x1="12" y1="18" x2="12" y2="22"/>
+        </svg>
+      </button>
+    </div>
+    <p id="status">Appuie et dis « <span id="triggerLabel">note</span> » suivi de ta tâche</p>
+    <p id="liveTranscript"></p>
+  </div>
+
+  <div class="manual-add">
+    <input id="manualInput" placeholder="Ou tape directement ici…" />
+    <button id="manualAddBtn">Ajouter</button>
+  </div>
+
+  <div class="filter-tabs">
+    <button data-filter="pending" class="active">À faire</button>
+    <button data-filter="done">Faites</button>
+    <button data-filter="all">Tout</button>
+  </div>
+
+  <div class="resurface-card" id="resurfaceCard">
+    <div class="rf-label">Tâche oubliée</div>
+    <div class="rf-text" id="rfText"></div>
+    <div class="rf-extra" id="rfExtra"></div>
+    <div class="rf-actions">
+      <button class="rf-done" id="rfDoneBtn">Fait ✓</button>
+      <button class="rf-snooze" id="rfSnoozeBtn">Encore un peu</button>
+    </div>
+  </div>
+
+  <ul id="todoList"></ul>
+  <p class="hint">Astuce : menu du navigateur (⋮) → « Ajouter à l'écran d'accueil » pour l'ouvrir en un tap, et pour que le micro fonctionne pleinement (hors aperçu intégré).</p>
+</div>
+
+<div class="panel-backdrop hidden" id="settingsBackdrop">
+  <div class="settings-panel">
+    <h2>Réglages</h2>
+    <label for="triggerInput">Mot déclencheur</label>
+    <input id="triggerInput" placeholder="ex : note, ok note, hop" />
+    <p class="settings-note">Dis ce mot avant ta phrase. Tout ce qui suit sera enregistré comme une nouvelle tâche. Reste simple et facile à prononcer.</p>
+
+    <label for="staleDaysInput">Rappeler une tâche oubliée après (jours)</label>
+    <input id="staleDaysInput" type="number" min="1" max="30" />
+    <p class="settings-note">Une tâche ne remonte que si elle traîne depuis ce délai, et au maximum une fois par jour — pas de spam.</p>
+
+    <div class="toggle-row">
+      <div>
+        <div class="t-label">Rappels navigateur</div>
+        <div class="t-sub">Best-effort : fonctionne seulement si l'appli reste ouverte en arrière-plan.</div>
+      </div>
+      <button class="toggle-btn" id="notifToggle"><div class="knob"></div></button>
+    </div>
+
+    <div class="row">
+      <button class="ghost" id="closeSettings">Fermer</button>
+      <button class="primary" id="saveSettings">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'voice-notes-data';
+  let data = { todos: [], triggerWord: 'note', staleDays: 3, notificationsEnabled: false };
+  let filter = 'pending';
+  let isListening = false;
+  let recognition = null;
+  let shouldRestart = false;
+
+  const micSection = document.getElementById('micSection');
+  const micBtn = document.getElementById('micBtn');
+  const statusEl = document.getElementById('status');
+  const liveEl = document.getElementById('liveTranscript');
+  const triggerLabel = document.getElementById('triggerLabel');
+  const todoListEl = document.getElementById('todoList');
+  const manualInput = document.getElementById('manualInput');
+  const confirmFlash = document.getElementById('confirmFlash');
+
+  const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  async function load(){
+    try{
+      const res = await window.storage.get(STORAGE_KEY);
+      if(res && res.value){
+        const parsed = JSON.parse(res.value);
+        data.todos = Array.isArray(parsed.todos) ? parsed.todos : [];
+        data.triggerWord = parsed.triggerWord || 'note';
+        data.staleDays = parsed.staleDays || 3;
+        data.notificationsEnabled = !!parsed.notificationsEnabled;
+      }
+    }catch(e){ /* no existing data yet */ }
+    triggerLabel.textContent = data.triggerWord;
+    render();
+    setupNotificationCheck();
+  }
+
+  async function save(){
+    try{
+      await window.storage.set(STORAGE_KEY, JSON.stringify(data));
+    }catch(e){ console.error('Storage error', e); }
+  }
+
+  function normalize(s){
+    return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  }
+
+  function addTodo(text){
+    text = text.trim();
+    if(!text) return;
+    data.todos.unshift({
+      id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
+      text: text.charAt(0).toUpperCase() + text.slice(1),
+      done: false,
+      createdAt: Date.now(),
+      lastSurfacedAt: null
+    });
+    save();
+    render();
+    flashConfirm();
+  }
+
+  function flashConfirm(){
+    confirmFlash.classList.add('on');
+    setTimeout(()=>confirmFlash.classList.remove('on'), 160);
+    if(navigator.vibrate) navigator.vibrate(40);
+  }
+
+  function relativeTime(ts){
+    const diff = Date.now() - ts;
+    const mins = Math.floor(diff/60000);
+    if(mins < 1) return 'à l\'instant';
+    if(mins < 60) return `il y a ${mins} min`;
+    const hrs = Math.floor(mins/60);
+    if(hrs < 24) return `il y a ${hrs} h`;
+    const days = Math.floor(hrs/24);
+    return `il y a ${days} j`;
+  }
+
+  function getStaleCandidates(){
+    const threshold = (data.staleDays || 3) * 86400000;
+    const now = Date.now();
+    return data.todos
+      .filter(t => !t.done && (now - t.createdAt) > threshold && (!t.lastSurfacedAt || (now - t.lastSurfacedAt) > 86400000))
+      .sort((a,b) => a.createdAt - b.createdAt);
+  }
+
+  function renderResurfaceCard(){
+    const card = document.getElementById('resurfaceCard');
+    const candidates = getStaleCandidates();
+    if(candidates.length === 0){
+      card.classList.remove('show');
+      return;
+    }
+    const top = candidates[0];
+    document.getElementById('rfText').textContent = top.text;
+    const extraEl = document.getElementById('rfExtra');
+    extraEl.textContent = candidates.length > 1 ? `+ ${candidates.length - 1} autre(s) tâche(s) ancienne(s)` : '';
+    card.classList.add('show');
+
+    document.getElementById('rfDoneBtn').onclick = ()=>{
+      top.done = true;
+      save(); render();
+    };
+    document.getElementById('rfSnoozeBtn').onclick = ()=>{
+      top.lastSurfacedAt = Date.now();
+      save(); render();
+    };
+  }
+
+  function setupNotificationCheck(){
+    if(!('Notification' in window)) return;
+    setInterval(()=>{
+      if(!data.notificationsEnabled) return;
+      if(Notification.permission !== 'granted') return;
+      if(!document.hidden) return; // avoid duplicating what the banner already shows
+      const candidates = getStaleCandidates();
+      if(candidates.length === 0) return;
+      const top = candidates[0];
+      try{
+        new Notification('Note Éclair', { body: top.text, tag: 'note-eclair-resurface' });
+      }catch(e){ /* notification blocked */ }
+      top.lastSurfacedAt = Date.now();
+      save();
+    }, 30 * 60 * 1000);
+  }
+
+  function render(){
+    renderResurfaceCard();
+    const filtered = data.todos.filter(t=>{
+      if(filter==='pending') return !t.done;
+      if(filter==='done') return t.done;
+      return true;
+    });
+    todoListEl.innerHTML = '';
+    if(filtered.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = filter==='done'
+        ? 'Rien de coché pour le moment.'
+        : 'Rien à faire ici — parle ou tape pour ajouter une note.';
+      todoListEl.appendChild(empty);
+      return;
+    }
+    filtered.forEach(todo=>{
+      const li = document.createElement('li');
+
+      const check = document.createElement('button');
+      check.className = 'check' + (todo.done ? ' done' : '');
+      check.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#0D2321" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      check.setAttribute('aria-label', todo.done ? 'Marquer à faire' : 'Marquer comme fait');
+      check.onclick = ()=>{
+        todo.done = !todo.done;
+        save(); render();
+      };
+
+      const body = document.createElement('div');
+      body.className = 'todo-body';
+      const txt = document.createElement('div');
+      txt.className = 'todo-text' + (todo.done ? ' done' : '');
+      txt.textContent = todo.text;
+      const time = document.createElement('div');
+      time.className = 'todo-time';
+      time.textContent = relativeTime(todo.createdAt);
+      body.appendChild(txt);
+      body.appendChild(time);
+
+      const del = document.createElement('button');
+      del.className = 'del-btn';
+      del.textContent = '✕';
+      del.setAttribute('aria-label','Supprimer');
+      del.onclick = ()=>{
+        data.todos = data.todos.filter(t=>t.id !== todo.id);
+        save(); render();
+      };
+
+      li.appendChild(check);
+      li.appendChild(body);
+      li.appendChild(del);
+      todoListEl.appendChild(li);
+    });
+  }
+
+  document.querySelectorAll('.filter-tabs button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.filter-tabs button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      filter = btn.dataset.filter;
+      render();
+    });
+  });
+
+  document.getElementById('manualAddBtn').addEventListener('click', ()=>{
+    addTodo(manualInput.value);
+    manualInput.value = '';
+  });
+  manualInput.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      addTodo(manualInput.value);
+      manualInput.value = '';
+    }
+  });
+
+  // Settings panel
+  const backdrop = document.getElementById('settingsBackdrop');
+  const triggerInput = document.getElementById('triggerInput');
+  const staleDaysInput = document.getElementById('staleDaysInput');
+  const notifToggle = document.getElementById('notifToggle');
+
+  function updateToggleUI(){
+    notifToggle.classList.toggle('on', !!data.notificationsEnabled);
+  }
+
+  notifToggle.addEventListener('click', ()=>{
+    if(!data.notificationsEnabled){
+      if(!('Notification' in window)){
+        alert("Les notifications ne sont pas supportées par ce navigateur.");
+        return;
+      }
+      Notification.requestPermission().then(perm=>{
+        data.notificationsEnabled = (perm === 'granted');
+        updateToggleUI();
+        save();
+      });
+    }else{
+      data.notificationsEnabled = false;
+      updateToggleUI();
+      save();
+    }
+  });
+
+  document.getElementById('openSettings').addEventListener('click', ()=>{
+    triggerInput.value = data.triggerWord;
+    staleDaysInput.value = data.staleDays;
+    updateToggleUI();
+    backdrop.classList.remove('hidden');
+  });
+  document.getElementById('closeSettings').addEventListener('click', ()=>{
+    backdrop.classList.add('hidden');
+  });
+  document.getElementById('saveSettings').addEventListener('click', ()=>{
+    const val = triggerInput.value.trim();
+    if(val){
+      data.triggerWord = val;
+      triggerLabel.textContent = val;
+    }
+    const days = parseInt(staleDaysInput.value, 10);
+    if(days > 0) data.staleDays = days;
+    save();
+    render();
+    backdrop.classList.add('hidden');
+  });
+
+  // Speech recognition
+  function setupRecognition(){
+    recognition = new SpeechRecognitionImpl();
+    recognition.lang = 'fr-FR';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event)=>{
+      let interim = '';
+      let final = '';
+      for(let i = event.resultIndex; i < event.results.length; i++){
+        const transcript = event.results[i][0].transcript;
+        if(event.results[i].isFinal){
+          final += transcript + ' ';
+        }else{
+          interim += transcript;
+        }
+      }
+      liveEl.textContent = (final + interim).trim();
+
+      if(final.trim()){
+        const norm = normalize(final);
+        const trig = normalize(data.triggerWord);
+        const idx = norm.lastIndexOf(trig);
+        if(idx !== -1){
+          const originalWords = final.trim().split(/\s+/);
+          const normWords = norm.split(/\s+/);
+          const trigWordCount = trig.split(/\s+/).length;
+          let cutIdx = -1;
+          for(let w = 0; w <= normWords.length - trigWordCount; w++){
+            if(normWords.slice(w, w+trigWordCount).join(' ') === trig){
+              cutIdx = w + trigWordCount;
+            }
+          }
+          if(cutIdx !== -1){
+            const rest = originalWords.slice(cutIdx).join(' ');
+            if(rest.trim()){
+              addTodo(rest);
+              liveEl.textContent = '';
+            }
+          }
+        }
+      }
+    };
+
+    recognition.onerror = (event)=>{
+      if(event.error === 'not-allowed' || event.error === 'service-not-allowed'){
+        statusEl.textContent = "Micro refusé — autorise-le dans les réglages du navigateur.";
+        shouldRestart = false;
+        stopListening();
+      }
+      // 'no-speech' and similar are transient — the onend handler restarts.
+    };
+
+    recognition.onend = ()=>{
+      if(shouldRestart){
+        setTimeout(()=>{
+          try{ recognition.start(); }catch(e){ /* already running */ }
+        }, 250);
+      }
+    };
+  }
+
+  function startListening(){
+    if(!SpeechRecognitionImpl){
+      statusEl.textContent = "Reconnaissance vocale non disponible sur ce navigateur — utilise la saisie manuelle ci-dessus.";
+      return;
+    }
+    if(!recognition) setupRecognition();
+    shouldRestart = true;
+    isListening = true;
+    micSection.classList.add('listening');
+    statusEl.textContent = "J'écoute…";
+    try{ recognition.start(); }catch(e){ /* already started */ }
+  }
+
+  function stopListening(){
+    shouldRestart = false;
+    isListening = false;
+    micSection.classList.remove('listening');
+    statusEl.textContent = `Appuie et dis « ${data.triggerWord} » suivi de ta tâche`;
+    liveEl.textContent = '';
+    if(recognition){ try{ recognition.stop(); }catch(e){} }
+  }
+
+  micBtn.addEventListener('click', ()=>{
+    if(isListening) stopListening(); else startListening();
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>
